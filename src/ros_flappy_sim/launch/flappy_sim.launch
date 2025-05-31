@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="mujoco_ros_bridge" type="mujoco_ros_bridge.py" name="mujoco_ros_bridge" output="screen" />
+  <node pkg="mujoco_ros_bridge" type="imu_publisher.py" name="imu_publisher" output="screen" />
+  <node pkg="mujoco_ros_bridge" type="camera_publisher.py" name="camera_publisher" output="screen" />
+  <!-- <node pkg="mujoco_ros_bridge" type="axes_publisher.py" name="axes_publisher" output="screen" />x -->
+</launch>

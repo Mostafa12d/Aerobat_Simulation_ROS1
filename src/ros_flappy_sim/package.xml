@@ -1,0 +1,21 @@
+<package format="2">
+  <name>ros_flappy_sim</name>
+  <version>0.0.1</version>
+  <description>The ROS integration for the Flappy simulation using MuJoCo.</description>
+  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>cv_bridge</depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <export>
+    <build_type>catkin</build_type>
+  </export>
+</package>
