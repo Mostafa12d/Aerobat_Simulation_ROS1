@@ -10,7 +10,8 @@
     - The first two actuator "J5_angle", "J6_angle" is used to set the wing joint angle
     - Camera is included
     -->
-  <compiler angle="radian" meshdir="src/ros_flappy_sim/meshes_v8" balanceinertia="true" />
+  <!-- <compiler angle="radian" meshdir="src/ros_flappy_sim/meshes_v8" balanceinertia="true" /> -->
+  <compiler angle="radian" meshdir="../assets/meshes_v8" balanceinertia="true" />
   <!-- <statistic meansize="0.0652069" extent="0.541984" center="0.0122683 -0.0367867 0.0356997"/> -->
 <!--  <option impratio="1" timestep="2e-5" gravity="0 0 -9.81" integrator="implicitfast"  density="1.225" viscosity="1.789e-5">-->
   <option impratio="1" gravity="0 0 -9.81"  integrator="implicit" density="1.225" viscosity="1.789e-5"> Uncomment this to enable aerodynamics

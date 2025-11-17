@@ -50,18 +50,27 @@ def publish_imu(pub, data):
     imu_msg.angular_velocity.z = data.sensordata[12]
     # Linear acceleration (approximate with finite difference or use MuJoCo sensor if available)
     # Here, we use linear velocity difference as a placeholder (not accurate!)
-    imu_msg.linear_acceleration.x = 0.0
-    imu_msg.linear_acceleration.y = 0.0
-    imu_msg.linear_acceleration.z = 0.0
+    # imu_msg.linear_acceleration.x = 0.0
+    # imu_msg.linear_acceleration.y = 0.0
+    # imu_msg.linear_acceleration.z = 0.0
+    imu_msg.linear_acceleration.x = data.sensordata[13] #+ accel_bias[0]
+    imu_msg.linear_acceleration.y = data.sensordata[14] #+ accel_bias[1]
+    imu_msg.linear_acceleration.z = data.sensordata[15] #+ accel_bias[2]
     pub.publish(imu_msg)
-    print("IMU data published")
+    # print("IMU data published")
 
-def publish_camera(pub, bridge, viewer):
-    img = viewer.read_pixels()
-    img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    ros_img = bridge.cv2_to_imgmsg(img, encoding="bgr8")
+# def publish_camera(pub, bridge, renderer, data):
+#     renderer.update_scene(data, camera="onboard_camera")
+#     img = renderer.read_pixels()
+#     img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+#     ros_img = bridge.cv2_to_imgmsg(img, encoding="bgr8")
+#     pub.publish(ros_img)
+#     # print("Camera image published")
+def publish_camera(pub, bridge, renderer, data):
+    renderer.update_scene(data, camera="onboard_camera")
+    img = renderer.render()  # Returns RGB numpy array directly
+    ros_img = bridge.cv2_to_imgmsg(img, encoding="rgb8")  # Use rgb8, not bgr8
     pub.publish(ros_img)
-    print("Camera image published")
 
 def publish_tf(tf_broadcaster, data):
     # Get position from MuJoCo sensor data
@@ -84,7 +93,7 @@ def publish_tf(tf_broadcaster, data):
         "odom"         # parent frame (world)
     )
 
-    print("TF transform published")
+    # print("TF transform published")
 
 
 def get_bodyIDs(body_list):
@@ -150,16 +159,20 @@ model = mj.MjModel.from_xml_path(xml_path)
 data = mj.MjData(model)  # MuJoCo data
 
 # Create the viewer object
-record_enable = True  # <============== Set to True to enable video recording
-video_show_enable = False  # <============== Set to True to show video when recording
-width = 1920  # None
-height = 1080 # None (default)
-if record_enable:
-    viewer = mujoco_viewer.MujocoViewer(model, data, 'offscreen', width=width, height=height, hide_menus=True)  # To record video
-else:
-    viewer = mujoco_viewer.MujocoViewer(model, data, width=width, height=height, hide_menus= True)
+record_enable = False  # <============== Set to True to enable video recording
+video_show_enable = True  # <============== Set to True to show video when recording
+width = 640  # None
+height = 480 # None (default)
+# viewer = mujoco_viewer.MujocoViewer(model, data, 'offscreen', width=width, height=height, hide_menus=True)  # To record video
+viewer = mujoco_viewer.MujocoViewer(model, data, mode='window', width=width, height=height, hide_menus=False)  # To record video
+camera_renderer = mj.Renderer(model, height=height, width=width)
+# camera_renderer.enable_depth_rendering()
+# if record_enable:
+#     viewer = mujoco_viewer.MujocoViewer(model, data, 'offscreen', width=width, height=height, hide_menus=True)  # To record video
+# else:
+#     viewer = mujoco_viewer.MujocoViewer(model, data, width=width, height=height, hide_menus=True)
 
-viewer._render_every_frame = False  # To run faster (same as hitting key "D")
+viewer._render_every_frame = True  # To run faster (same as hitting key "D")
 viewer._image_path = "frame_%07d.png"  # Enable screenshot
 
 # Camera Setup
@@ -167,6 +180,14 @@ viewer.cam.azimuth = -225
 viewer.cam.elevation = -20
 viewer.cam.distance = 1
 viewer.cam.lookat = np.array([0, 0.0, 0.5])
+
+# # Enable headlight to brighten the scene
+# viewer.opt.flags[mj.mjtVisFlag.mjVIS_HEADLIGHT] = 1
+
+# # Make rendering brighter
+# model.vis.headlight.ambient = [0.5, 0.5, 0.5]
+# model.vis.headlight.diffuse = [0.8, 0.8, 0.8]
+# model.vis.headlight.specular = [0.3, 0.3, 0.3]
 
 # Video Recording
 # if record_enable:
@@ -189,7 +210,7 @@ joint_list = ['J1', 'J2', 'J3', 'J5', 'J6', 'J7', 'J10',
 bodyID_dic, jntID_dic, posID_dic, jvelID_dic = get_bodyIDs(body_list)
 jID_dic = get_jntIDs(joint_list)
 
-flap_freq = 5 # Hz <===== Change here to change flapping frequency
+flap_freq = 6 # Hz <===== Change here to change flapping frequency
 # Load pre-recorded joint angle from MATLAB (1 period; 1 second)
 Angle_data = pd.read_csv(csv_path, header=None)
 J5_m = Angle_data.loc[:, 0]  # Mujoco reference joint angle (θ_5)
@@ -206,7 +227,7 @@ controller = Controller(model,data)
 mj.set_mjcb_control(controller.Control)
 
 # simulation parameters
-dt = 1e-3
+dt = 2e-5
 model.opt.timestep = dt
 simend = 60
 
@@ -222,14 +243,17 @@ JointVel = [[],[]]
 JointVel_ref = [[],[]]
 
 n_steps = int(simend / dt)
-rate = rospy.Rate(int(1/dt))
+# rate = rospy.Rate(int(1/dt))
 # To Record Computation Time
 
 comp_time = np.zeros((3, n_steps))
 factor = 1
-publish_interval = 10 
+publish_interval = 40
+render_interval = 2  # render every 1 step 
 try:
     t_start = time.time()
+    if video_show_enable:
+        cv2.namedWindow('Flappy Simulation', cv2.WINDOW_AUTOSIZE)
     for i in range(n_steps):
         start_time_loop = time.time()
 
@@ -247,18 +271,18 @@ try:
 
             fa, ua, xd = aero(xd, R_body, xa)
 
-            # publish ros topics
-            if not rospy.is_shutdown() and (i % publish_interval == 0):
-                publish_camera(cam_pub, bridge, viewer)
-            if not rospy.is_shutdown():
-                publish_imu(imu_pub, data)
-                publish_tf(tf_broadcaster, data)
+            # # publish ros topics
+            # if not rospy.is_shutdown() and (i % publish_interval == 0):
+            #     publish_camera(cam_pub, bridge, viewer)
+            # if not rospy.is_shutdown():
+            #     publish_imu(imu_pub, data)
+            #     publish_tf(tf_broadcaster, data)
 
             # Integrate Aero States
             xa = xa + fa*factor*dt  # 1 step
 
             comp_time[0, i] = time.time() - start_time_aero
-            print("--- Aero Time: %s seconds ---" % (time.time() - start_time_aero))
+            # print("--- Aero Time: %s seconds ---" % (time.time() - start_time_aero))
             ########## ^^^^^^^^^^^^^^^ ##########
 
         # Apply Aero forces
@@ -316,31 +340,91 @@ try:
         #         print("--- Record Time: %s seconds ---" % (time.time() - start_time_record))
 
         ## Rendering ##
-        if not record_enable:
-            start_time_render = time.time()
-            viewer.render()
-            comp_time[1, i] = (time.time() - start_time_render)
-            # print("--- Render Time: %s seconds ---" % (time.time() - start_time_render))
+        # if not record_enable:
+        #     start_time_render = time.time()
+        #     viewer.render()
+        #     comp_time[1, i] = (time.time() - start_time_render)
+        #     # print("--- Render Time: %s seconds ---" % (time.time() - start_time_render))
+
+        # comp_time[2, i] = (time.time() - start_time_loop)
+
+        # start_time_render = time.time()
+        # if i % render_interval == 0:  # Render every step or adjust interval
+        #     viewer.render()
+        # comp_time[1, i] = (time.time() - start_time_render)
+
+        # start_time_render = time.time()
+        # if i % render_interval == 0:  # Render every step or adjust interval
+        #     if record_enable:
+        #         # For offscreen mode, just read pixels (rendering happens automatically)
+        #         img = viewer.read_pixels()
+        #         # Optionally display the image if needed
+        #         if video_show_enable:
+        #             img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+        #             cv2.imshow('Simulation', img_bgr)
+        #             cv2.waitKey(1)
+        #     else:
+        #         # For normal mode, use render()
+        #         viewer.render()
+        # comp_time[1, i] = (time.time() - start_time_render)
+
+                ## Rendering - Always read pixels and optionally display ##
+        # start_time_render = time.time()
+        # if i % render_interval == 0:
+        #     img = viewer.read_pixels()
+            
+        #     # Display the simulation window
+        #     if video_show_enable:
+        #         img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+        #         cv2.imshow('Flappy Simulation', img_bgr)
+        #         if cv2.waitKey(1) & 0xFF == ord('q'):
+        #             break
+        
+        # comp_time[1, i] = (time.time() - start_time_render)
+
+        start_time_render = time.time()
+        # if i % render_interval == 0:
+
+        viewer.render()  # Just render the interactive window
+            
+        comp_time[1, i] = (time.time() - start_time_render)
+
+        # Publish ROS topics at regular intervals
+        if not rospy.is_shutdown() and (i % publish_interval == 0):
+            publish_camera(cam_pub, bridge, camera_renderer, data)
+            # Remove print statements for better performance
+        if not rospy.is_shutdown():
+            publish_imu(imu_pub, data)
+            publish_tf(tf_broadcaster, data)
+            # Remove print statements for better performance
 
         comp_time[2, i] = (time.time() - start_time_loop)
+
+        # ENABLE real-time synchronization for proper timing
+        # elapsed = time.time() - start_time_loop
+        # sleep_time = dt - elapsed
+        # if sleep_time > 0:
+        #     time.sleep(sleep_time)
+
+
         # print("--- Loop Time: %s seconds ---\n" % (time.time() - start_time_loop))
 
-        elapsed = time.time() - start_time_loop
-        sleep_time = dt - elapsed
-        if sleep_time > 0:
-            time.sleep(sleep_time)
+        # Remove real-time synchronization to run as fast as possible
+        # elapsed = time.time() - start_time_loop
+        # sleep_time = dt - elapsed
+        # if sleep_time > 0:
+        #     time.sleep(sleep_time)
 
-        if not viewer.is_alive or rospy.is_shutdown():
+        if not viewer.is_alive: # or rospy.is_shutdown():
             break
 except KeyboardInterrupt:
     print("Simulation interrupted by user.")
 # close
 finally:
     viewer.close()
-    # if record_enable:
-    #     out.release()  # done recording
-    if video_show_enable or record_enable:
-        cv2.destroyWindow("video")
+    camera_renderer.close()
+    if video_show_enable:
+        cv2.destroyAllWindows()
     print("Simulation ended and resources released.")
 
 total_time = time.time() - t_start
@@ -352,38 +436,38 @@ print("--- Total realtime factor: %f x ---" % (simend/total_time))
 
 # Plot Results
 
-plt.figure()
-plt.subplot(2,1,1)
-plt.title("Joint Angle (MuJoCo vs. Matlab)")
-plt.plot(SimTime, np.rad2deg(JointAng_ref[0]), 'b--', label='J5 ref')
-plt.plot(SimTime, np.rad2deg(JointAng[0]), 'b', label='J5 real')
-plt.xlabel('Time, t (s)')
-plt.ylabel('J5 Angle, θ_5 (deg)')
-plt.legend()
+# plt.figure()
+# plt.subplot(2,1,1)
+# plt.title("Joint Angle (MuJoCo vs. Matlab)")
+# plt.plot(SimTime, np.rad2deg(JointAng_ref[0]), 'b--', label='J5 ref')
+# plt.plot(SimTime, np.rad2deg(JointAng[0]), 'b', label='J5 real')
+# plt.xlabel('Time, t (s)')
+# plt.ylabel('J5 Angle, θ_5 (deg)')
+# plt.legend()
 
-plt.subplot(2,1,2)
-plt.plot(SimTime, np.rad2deg(JointAng_ref[1]), 'g--', label='J6 ref')
-plt.plot(SimTime, np.rad2deg(JointAng[1]), 'g', label='J6 real')
-plt.xlabel('Time, t (s)')
-plt.ylabel('J6 Angle, θ_6 (deg)')
-plt.legend()
+# plt.subplot(2,1,2)
+# plt.plot(SimTime, np.rad2deg(JointAng_ref[1]), 'g--', label='J6 ref')
+# plt.plot(SimTime, np.rad2deg(JointAng[1]), 'g', label='J6 real')
+# plt.xlabel('Time, t (s)')
+# plt.ylabel('J6 Angle, θ_6 (deg)')
+# plt.legend()
 
-plt.figure()
-plt.subplot(2,1,1)
-plt.title("Joint Angle Velocity (MuJoCo vs. Matlab)")
-plt.plot(SimTime, np.rad2deg(JointVel_ref[0]), 'b--', label='J5 ref')
-plt.plot(SimTime, np.rad2deg(JointVel[0]), 'b', label='J5 real')
-plt.xlabel('Time, t (s)')
-plt.ylabel('J5 Speed, θ_5 (deg/s)')
-# plt.ylim([-2000,2000])
-plt.legend()
+# plt.figure()
+# plt.subplot(2,1,1)
+# plt.title("Joint Angle Velocity (MuJoCo vs. Matlab)")
+# plt.plot(SimTime, np.rad2deg(JointVel_ref[0]), 'b--', label='J5 ref')
+# plt.plot(SimTime, np.rad2deg(JointVel[0]), 'b', label='J5 real')
+# plt.xlabel('Time, t (s)')
+# plt.ylabel('J5 Speed, θ_5 (deg/s)')
+# # plt.ylim([-2000,2000])
+# plt.legend()
 
-plt.subplot(2,1,2)
-plt.plot(SimTime, np.rad2deg(JointVel_ref[1]), 'g--', label='J6 ref')
-plt.plot(SimTime, np.rad2deg(JointVel[1]), 'g', label='J6 real')
-plt.xlabel('Time, t (s)')
-plt.ylabel('J6 Speed, θ_6 (deg/s)')
-# plt.ylim([-3000,3000])
-plt.legend()
+# plt.subplot(2,1,2)
+# plt.plot(SimTime, np.rad2deg(JointVel_ref[1]), 'g--', label='J6 ref')
+# plt.plot(SimTime, np.rad2deg(JointVel[1]), 'g', label='J6 real')
+# plt.xlabel('Time, t (s)')
+# plt.ylabel('J6 Speed, θ_6 (deg/s)')
+# # plt.ylim([-3000,3000])
+# plt.legend()
 
-plt.show()
+# plt.show()

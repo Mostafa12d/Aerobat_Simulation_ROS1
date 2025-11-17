@@ -35,6 +35,9 @@ control_commands = {
     'motor6': 0.0
 }
 
+accel_bias = np.random.normal(0, 0.05, 3)  # Random bias for x, y, z
+gyro_bias = np.random.normal(0, 0.002, 3)  # Random bias for roll, pitch, yaw
+
 def terminal_input_thread():
     """Handle terminal input in a separate thread"""
     global control_commands
@@ -170,18 +173,19 @@ def publish_imu(pub, data):
     imu_msg.orientation.z = data.sensordata[6]
     imu_msg.orientation.w = data.sensordata[3]
     # Angular velocity (body frame)
-    imu_msg.angular_velocity.x = data.sensordata[10]
-    imu_msg.angular_velocity.y = data.sensordata[11]
-    imu_msg.angular_velocity.z = data.sensordata[12]
+    # Angular velocity with bias (body frame) - sensor data [10:13]
+    imu_msg.angular_velocity.x = data.sensordata[10] + gyro_bias[0]
+    imu_msg.angular_velocity.y = data.sensordata[11] + gyro_bias[1]
+    imu_msg.angular_velocity.z = data.sensordata[12] + gyro_bias[2]
     # Linear acceleration (placeholder)
-    imu_msg.linear_acceleration.x = 0.0
-    imu_msg.linear_acceleration.y = 0.0
-    imu_msg.linear_acceleration.z = 0.0
+    imu_msg.linear_acceleration.x = data.sensordata[13] #+ accel_bias[0]
+    imu_msg.linear_acceleration.y = data.sensordata[14] #+ accel_bias[1]
+    imu_msg.linear_acceleration.z = data.sensordata[15] #+ accel_bias[2]
     pub.publish(imu_msg)
 
 def publish_camera(pub, bridge, renderer, data):
     """Publish camera image using offscreen renderer"""
-    renderer.update_scene(data, camera="onboard_camera")
+    renderer.update_scene(data, camera = "onboard_camera")#camera="onboard_camera")
     img = renderer.render()
     ros_img = bridge.cv2_to_imgmsg(img, encoding="rgb8")
     pub.publish(ros_img)
@@ -277,7 +281,7 @@ bodyID_dic, jntID_dic, posID_dic, jvelID_dic = get_bodyIDs(body_list)
 jID_dic = get_jntIDs(joint_list)
 
 # Wing flapping data
-flap_freq = 5
+flap_freq = 6
 Angle_data = pd.read_csv(csv_path, header=None)
 J5_m = Angle_data.loc[:, 0]
 J6_m = Angle_data.loc[:, 1]

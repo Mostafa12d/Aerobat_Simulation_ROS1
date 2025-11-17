@@ -87,6 +87,8 @@ rospack = rospkg.RosPack()
 package_path = rospack.get_path('ros_flappy_sim')
 csv_path = os.path.join(package_path, 'src', 'JointAngleData.csv')
 xml_path = os.path.join(package_path, 'worlds', 'Flappy_v10_weld.xml')
+# xml_path = os.path.join(package_path, 'worlds', 'Flappy_v8.xml')
+
 
 # xml_path = '/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/src/ros_flappy_sim/worlds/Flappy_v9_RB.xml'
 # MuJoCo data structures
@@ -111,7 +113,6 @@ viewer.cam.azimuth = -225
 viewer.cam.elevation = -20
 viewer.cam.distance = 1
 viewer.cam.lookat = np.array([0, 0.0, 0.5])
-
 # Video Recording
 if record_enable:
     VideoName = "Flappy_video_JointInput.mp4"
@@ -126,7 +127,7 @@ if record_enable:
 # -------------------------------------------- #
 
 # Get id of bodies and joints
-body_list = ["Base", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
+body_list = ["Core","Base", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
              "L1R", "L2R", "L3R", "L4R", "L5R", "L6R", "L7R"]
 joint_list = ['J1', 'J2', 'J3', 'J5', 'J6', 'J7', 'J10',
               'J1R', 'J2R', 'J3R', 'J5R', 'J6R', 'J7R', 'J10R']
