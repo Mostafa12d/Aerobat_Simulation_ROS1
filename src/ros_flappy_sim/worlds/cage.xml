@@ -10,8 +10,11 @@
     
     <worldbody>
         <!-- Cage as static body (no dynamics) -->
-        <!-- Flip cage upside down: euler="180 0 0" (rotate 180° around X-axis) -->
-        <body name="cage" pos="0.3 0 0" euler="1.5707 0 0">
+        <!-- Centered at origin with robot - Flip cage upside down: euler="90 0 0" (rotate 90° around X-axis) -->
+        <body name="cage" pos="1 0 0" euler="1.5707 0 0">
+            <!-- Explicit minimal inertial properties for static body -->
+            <inertial pos="0 0 0" mass="0.001" diaginertia="0.001 0.001 0.001"/>
+            
             <!-- Visual geometry (what you see) - Less transparent -->
             <geom name="cage_visual" 
                   type="mesh" 
@@ -21,12 +24,12 @@
                   conaffinity="0"
                   rgba="1 1 1 0.9"/>  <!-- Changed from 0.5 to 0.9 = much less transparent -->
             
-            <!-- Collision geometry (for physics) - Fully opaque but invisible -->
+            <!-- Collision geometry (for physics) - DISABLED at startup to avoid penetration -->
             <geom name="cage_collision" 
                   type="mesh" 
                   mesh="cage_mesh" 
-                  contype="1" 
-                  conaffinity="1" 
+                  contype="0" 
+                  conaffinity="0" 
                   group="3"
                   rgba="0.6 0.6 0.6 1"/>  <!-- Changed to 1 = fully opaque -->
         </body>

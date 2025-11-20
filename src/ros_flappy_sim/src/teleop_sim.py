@@ -6,29 +6,93 @@ import time
 import pandas as pd
 import os
 import rospkg
+from datetime import datetime
+import matplotlib.pyplot as plt
 
 from aero_force_v2 import aero, nWagner
 from Controller_PID_v1 import *
 from flapping_controller import FlappingController
 from utility_functions.rotation_transformations import *
 
-# For callback functions
+# Global variables for control
 button_left = False
 button_middle = False
 button_right = False
 lastx = 0
 lasty = 0
 flapping_enabled = False
+save_image_request = False
+control_speed = 0.1  # Step size for position control
+yaw_speed = np.deg2rad(5) # Step size for yaw control (5 degrees)
+
+# Create directory for SLAM data
+slam_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "slam_data")
+if not os.path.exists(slam_data_dir):
+    os.makedirs(slam_data_dir)
+    print(f"Created directory for SLAM data: {slam_data_dir}")
 
 def keyboard(window, key, scancode, act, mods):
-    global flapping_enabled
-    if act == glfw.PRESS and key == glfw.KEY_BACKSPACE:
-        mj.mj_resetData(model, data)
-        mj.mj_forward(model, data)
+    global flapping_enabled, save_image_request, control_speed, controller
     
-    if act == glfw.PRESS and key == glfw.KEY_F:
-        flapping_enabled = not flapping_enabled
-        print(f"Flapping enabled: {flapping_enabled}")
+    if act == glfw.PRESS or act == glfw.REPEAT:
+        # Reset simulation
+        if key == glfw.KEY_BACKSPACE:
+            mj.mj_resetData(model, data)
+            mj.mj_forward(model, data)
+            controller.x_d = 0
+            controller.y_d = 0
+            controller.z_d = 1.0
+            controller.yaw_d = 0
+            print("Simulation Reset")
+
+        # Toggle Flapping
+        elif key == glfw.KEY_F and act == glfw.PRESS:
+            flapping_enabled = not flapping_enabled
+            print(f"Flapping enabled: {flapping_enabled}")
+            
+        # Capture Image
+        elif key == glfw.KEY_C and act == glfw.PRESS:
+            save_image_request = True
+            print("Image capture requested")
+
+        # Control Speed Adjustment
+        elif key == glfw.KEY_EQUAL: # '+' key
+            control_speed *= 1.2
+            print(f"Control speed increased to: {control_speed:.3f} m/step")
+        elif key == glfw.KEY_MINUS: # '-' key
+            control_speed /= 1.2
+            print(f"Control speed decreased to: {control_speed:.3f} m/step")
+
+        # Robot Control
+        # X/Y Movement (Arrow Keys)
+        elif key == glfw.KEY_UP:
+            controller.x_d += control_speed
+            print(f"Target X: {controller.x_d:.2f}")
+        elif key == glfw.KEY_DOWN:
+            controller.x_d -= control_speed
+            print(f"Target X: {controller.x_d:.2f}")
+        elif key == glfw.KEY_LEFT:
+            controller.y_d += control_speed
+            print(f"Target Y: {controller.y_d:.2f}")
+        elif key == glfw.KEY_RIGHT:
+            controller.y_d -= control_speed
+            print(f"Target Y: {controller.y_d:.2f}")
+            
+        # Z Movement (W/S)
+        elif key == glfw.KEY_W:
+            controller.z_d += control_speed
+            print(f"Target Z: {controller.z_d:.2f}")
+        elif key == glfw.KEY_S:
+            controller.z_d -= control_speed
+            print(f"Target Z: {controller.z_d:.2f}")
+            
+        # Yaw Rotation (A/D)
+        elif key == glfw.KEY_A:
+            controller.yaw_d += yaw_speed
+            print(f"Target Yaw: {np.rad2deg(controller.yaw_d):.1f} deg")
+        elif key == glfw.KEY_D:
+            controller.yaw_d -= yaw_speed
+            print(f"Target Yaw: {np.rad2deg(controller.yaw_d):.1f} deg")
 
 def mouse_button(window, button, act, mods):
     global button_left, button_middle, button_right
@@ -118,9 +182,7 @@ def original_states(model, data, posID_dic, jvelID_dic):
 rospack = rospkg.RosPack()
 package_path = rospack.get_path('ros_flappy_sim')
 csv_path = os.path.join(package_path, 'src', 'JointAngleData.csv')
-# xml_path = os.path.join(package_path, 'worlds', 'Flappy_v10_weld.xml')
 xml_path = os.path.join(package_path, 'worlds', 'Cage_scene.xml')
-
 
 # MuJoCo data structures
 model = mj.MjModel.from_xml_path(xml_path)
@@ -130,21 +192,14 @@ data = mj.MjData(model)
 print(f"Number of bodies: {model.nbody}")
 print(f"Number of geoms: {model.ngeom}")
 print(f"Number of DOFs: {model.nv}")
-print(f"Body names: {[mj.mj_id2name(model, mj.mjtObj.mjOBJ_BODY, i) for i in range(model.nbody)]}")
-print(f"Initial qpos (first 10): {data.qpos[:10]}")
-print(f"Gravity: {model.opt.gravity}")
 print(f"Total system mass: {sum(model.body_mass):.6f} kg")
-
-# Run one step to see what forces are applied
-mj.mj_forward(model, data)
-print(f"Initial qfrc_passive (gravity+bias forces, first 10): {data.qfrc_passive[:10]}")
 
 cam = mj.MjvCamera()
 opt = mj.MjvOption()
 
 # Init GLFW, create window
 glfw.init()
-window = glfw.create_window(1200, 900, "Flappy Simulation", None, None)
+window = glfw.create_window(1200, 900, "Flappy Teleop Simulation", None, None)
 glfw.make_context_current(window)
 glfw.swap_interval(1)
 
@@ -173,8 +228,7 @@ bodyID_dic, jntID_dic, posID_dic, jvelID_dic = get_bodyIDs(body_list, model)
 jID_dic = get_jntIDs(joint_list, model)
 
 # Load joint angle data
-# TODO: figure this out using a flapping controller instead.
-flap_freq = 6
+flap_freq = 5
 Angle_data = pd.read_csv(csv_path, header=None)
 J5_m = Angle_data.loc[:, 0]
 J6_m = Angle_data.loc[:, 1]
@@ -182,51 +236,52 @@ J5v_m = flap_freq/2 * Angle_data.loc[:, 2]
 J6v_m = flap_freq/2 * Angle_data.loc[:, 3]
 t_m = np.linspace(0, 1.0/flap_freq, num=len(J5_m))
 
-# Initialize Flapping Controller
-# Adjust amplitudes, phases, and offsets as needed to match desired flight behavior
-# flapping_ctrl = FlappingController(
-#     freq=flap_freq,
-#     amp_J5=1,      # Amplitude for proximal joint (rad)
-#     amp_J6=1,      # Amplitude for distal joint (rad)
-#     phase_J5=2.5,    # Phase for proximal joint
-#     phase_J6=-0.8,   # Phase lag for distal joint
-#     offset_J5=0.5,   # Offset for proximal joint
-#     offset_J6=-1   # Offset for distal joint
-# )
-
 # Initialize controller
-# controller = Controller(model, data)
-# mj.set_mjcb_control(controller.Control)
-# controller.x_d = 0.0
-# controller.y_d = 0.0
-# controller.z_d = 1.0
-# controller.yaw_d = 0.0
+controller = Controller(model, data)
+mj.set_mjcb_control(controller.Control)
+controller.x_d = 0.0
+controller.y_d = 0.0
+controller.z_d = 1.0
+controller.yaw_d = 0.0
+
 # Simulation parameters
 dt = 1e-3
 model.opt.timestep = dt
-simend = 60
+simend = 100 # Longer simulation time for teleop
 xa = np.zeros(3 * nWagner)
-
-# Data logging
-SimTime = []
-JointAng = [[], []]
-JointAng_ref = [[], []]
-
-n_steps = int(simend / dt)
 
 # Camera settings for inset view
 camera_name = 'onboard_camera'
 inset_width = 640
 inset_height = 480
+last_camera_time = 0
+camera_rate = 25.0 # Hz - How often to capture/process images
 
-t_start = time.time()
 i = 0
 cage_collision_enabled = False
+
+print("\n" + "="*60)
+print("           KEYBOARD TELEOP INSTRUCTIONS")
+print("="*60)
+print("  [Arrow Keys] : Move X/Y (Forward/Back/Left/Right)")
+print("  [W] / [S]    : Move Z (Up/Down)")
+print("  [A] / [D]    : Rotate Yaw (Left/Right)")
+print("  [+] / [-]    : Increase/Decrease Control Speed")
+print("  [F]          : Toggle Flapping")
+print("  [C]          : Capture Image (saved to slam_data/)")
+print("  [Backspace]  : Reset Simulation")
+print("="*60 + "\n")
+
+# Data logging
+aero_forces_log = []
+time_log = []
+
+t_start = time.time() # Start timer exactly when loop begins
 
 while not glfw.window_should_close(window):
     time_prev = data.time
     
-    while (data.time - time_prev < 1.0/60.0):  # 60 FPS rendering
+    while (data.time - time_prev < 1.0/30.0):  # 30 FPS rendering for better real-time performance
         # Enable cage collision after 0.5 seconds (robot has settled)
         if not cage_collision_enabled and data.time > 0.5:
             try:
@@ -241,10 +296,7 @@ while not glfw.window_should_close(window):
         # Aerodynamics
         xd, R_body = original_states(model, data, posID_dic, jvelID_dic)
         
-        # Get flapping kinematics from controller
-        # J5_, J6_, J5v_d, J6v_d = flapping_ctrl.update(data.time)
-        
-        if 1:
+        if flapping_enabled:
             J5v_d = np.interp(data.time, t_m, J5v_m, period=1.0 / flap_freq)
             J6v_d = np.interp(data.time, t_m, J6v_m, period=1.0 / flap_freq)
         else:
@@ -257,6 +309,10 @@ while not glfw.window_should_close(window):
         fa, ua, xd = aero(xd, R_body, xa)
         xa = xa + fa * dt
         
+        # Log forces
+        aero_forces_log.append(ua[2:5])
+        time_log.append(data.time)
+
         # Apply aero forces
         if "L3" in jvelID_dic and "L7" in jvelID_dic:
             data.qfrc_applied[jvelID_dic["L3"]] = ua[0]
@@ -264,51 +320,8 @@ while not glfw.window_should_close(window):
         if "Core" in bodyID_dic:
             data.xfrc_applied[bodyID_dic["Core"]] = [*ua[2:5], *ua[5:8]]
         
-        # DIAGNOSTIC: Print IMU data every 1 second
-        if i % 5 == 0:
-            # Core IMU: data.sensordata[16:22]
-            core_gyro = data.sensordata[16:19]    # Core gyro (rad/s)
-            core_accel = data.sensordata[19:22]   # Core accel (m/s^2)
-            
-            # Guard IMU: data.sensordata[22:28]
-            guard_gyro = data.sensordata[22:25]   # Guard gyro (rad/s)
-            guard_accel = data.sensordata[25:28]  # Guard accel (m/s^2)
-            
-            # Core Ground Truth: data.sensordata[28:41]
-            core_gt_pos = data.sensordata[28:31]       # Position (m)
-            core_gt_quat = data.sensordata[31:35]      # Quaternion (w,x,y,z)
-            core_gt_linvel = data.sensordata[35:38]    # Linear velocity (m/s)
-            core_gt_angvel = data.sensordata[38:41]    # Angular velocity (rad/s)
-            
-            # Guard Ground Truth: data.sensordata[41:54]
-            guard_gt_pos = data.sensordata[41:44]      # Position (m)
-            guard_gt_quat = data.sensordata[44:48]     # Quaternion (w,x,y,z)
-            guard_gt_linvel = data.sensordata[48:51]   # Linear velocity (m/s)
-            guard_gt_angvel = data.sensordata[51:54]   # Angular velocity (rad/s)
-            
-            print(f"\n{'='*80}")
-            print(f"Time: {data.time:.2f}s")
-            print(f"{'='*80}")
-            
-            print(f"\n--- CORE BODY ---")
-            print(f"  IMU     | Gyro: [{core_gyro[0]:+.4f}, {core_gyro[1]:+.4f}, {core_gyro[2]:+.4f}] rad/s")
-            print(f"          | Accel: [{core_accel[0]:+.4f}, {core_accel[1]:+.4f}, {core_accel[2]:+.4f}] m/s²")
-            print(f"  GT      | Pos: [{core_gt_pos[0]:+.4f}, {core_gt_pos[1]:+.4f}, {core_gt_pos[2]:+.4f}] m")
-            print(f"          | Quat: [{core_gt_quat[0]:+.4f}, {core_gt_quat[1]:+.4f}, {core_gt_quat[2]:+.4f}, {core_gt_quat[3]:+.4f}]")
-            print(f"          | LinVel: [{core_gt_linvel[0]:+.4f}, {core_gt_linvel[1]:+.4f}, {core_gt_linvel[2]:+.4f}] m/s")
-            print(f"          | AngVel: [{core_gt_angvel[0]:+.4f}, {core_gt_angvel[1]:+.4f}, {core_gt_angvel[2]:+.4f}] rad/s")
-            
-            print(f"\n--- GUARD BODY ---")
-            print(f"  IMU     | Gyro: [{guard_gyro[0]:+.4f}, {guard_gyro[1]:+.4f}, {guard_gyro[2]:+.4f}] rad/s")
-            print(f"          | Accel: [{guard_accel[0]:+.4f}, {guard_accel[1]:+.4f}, {guard_accel[2]:+.4f}] m/s²")
-            print(f"  GT      | Pos: [{guard_gt_pos[0]:+.4f}, {guard_gt_pos[1]:+.4f}, {guard_gt_pos[2]:+.4f}] m")
-            print(f"          | Quat: [{guard_gt_quat[0]:+.4f}, {guard_gt_quat[1]:+.4f}, {guard_gt_quat[2]:+.4f}, {guard_gt_quat[3]:+.4f}]")
-            print(f"          | LinVel: [{guard_gt_linvel[0]:+.4f}, {guard_gt_linvel[1]:+.4f}, {guard_gt_linvel[2]:+.4f}] m/s")
-            print(f"          | AngVel: [{guard_gt_angvel[0]:+.4f}, {guard_gt_angvel[1]:+.4f}, {guard_gt_angvel[2]:+.4f}] rad/s")
-        
         # Wing flapping
-        # Using values computed from flapping_ctrl above
-        if 1:
+        if flapping_enabled:
             J5_ = np.interp(data.time, t_m, J5_m, period=1.0/flap_freq)
             J6_ = np.interp(data.time, t_m, J6_m, period=1.0/flap_freq)
         else:
@@ -335,41 +348,51 @@ while not glfw.window_should_close(window):
     viewport_width, viewport_height = glfw.get_framebuffer_size(window)
     viewport = mj.MjrRect(0, 0, viewport_width, viewport_height)
     
-    # Update main scene and render
+    # ******** ONBOARD CAMERA (Hidden from main window) *********
+    # Only process camera frames at a specific rate (e.g., 10Hz) to save performance
+    if data.time - last_camera_time >= 1.0/camera_rate:
+        last_camera_time = data.time
+        
+        # We render to the bottom-left corner (0,0), but it will be overwritten later
+        offscreen_viewport = mj.MjrRect(0, 0, inset_width, inset_height)
+        
+        # Set camera to onboard_camera
+        try:
+            camera_id = model.camera(camera_name).id
+            offscreen_cam = mj.MjvCamera()
+            offscreen_cam.type = mj.mjtCamera.mjCAMERA_FIXED
+            offscreen_cam.fixedcamid = camera_id
+            
+            # Update scene for offscreen camera
+            mj.mjv_updateScene(model, data, opt, None, offscreen_cam, mj.mjtCatBit.mjCAT_ALL.value, scene)
+            
+            # Render the camera view
+            mj.mjr_render(offscreen_viewport, scene, context)
+            
+            # Read pixels for display and saving
+            rgb_pixels = np.zeros((inset_height, inset_width, 3), dtype=np.uint8)
+            mj.mjr_readPixels(rgb_pixels, None, offscreen_viewport, context)
+            
+            # Flip vertically for OpenCV
+            rgb_flipped = cv2.flip(rgb_pixels, 0)
+            rgb_bgr = cv2.cvtColor(rgb_flipped, cv2.COLOR_RGB2BGR)
+            
+            # Save image if requested
+            if save_image_request:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                filename = os.path.join(slam_data_dir, f"img_{timestamp}.png")
+                cv2.imwrite(filename, rgb_bgr)
+                print(f"Saved image: {filename}")
+                save_image_request = False
+            
+            cv2.imshow("Onboard Camera", rgb_bgr)
+            cv2.waitKey(1)
+        except:
+            pass
+
+    # Update main scene and render (This overwrites the camera view in the buffer)
     mj.mjv_updateScene(model, data, opt, None, cam, mj.mjtCatBit.mjCAT_ALL.value, scene)
     mj.mjr_render(viewport, scene, context)
-    
-    # ******** INSET VIEW (onboard camera) *********
-    loc_x = int(viewport_width - inset_width)
-    loc_y = int(viewport_height - inset_height)
-    offscreen_viewport = mj.MjrRect(loc_x, loc_y, inset_width, inset_height)
-    
-    # Set camera to onboard_camera
-    try:
-        camera_id = model.camera(camera_name).id
-        offscreen_cam = mj.MjvCamera()
-        offscreen_cam.type = mj.mjtCamera.mjCAMERA_FIXED
-        offscreen_cam.fixedcamid = camera_id
-        
-        # Update scene for offscreen camera
-        mj.mjv_updateScene(model, data, opt, None, offscreen_cam, mj.mjtCatBit.mjCAT_ALL.value, scene)
-        
-        # Render the inset view
-        mj.mjr_render(offscreen_viewport, scene, context)
-        
-        # Optional: Read pixels and show in OpenCV window
-        rgb_pixels = np.zeros((inset_height, inset_width, 3), dtype=np.uint8)
-        depth_pixels = np.zeros((inset_height, inset_width), dtype=np.float32)
-        mj.mjr_readPixels(rgb_pixels, depth_pixels, offscreen_viewport, context)
-        
-        # Flip vertically for OpenCV
-        rgb_flipped = cv2.flip(rgb_pixels, 0)
-        rgb_bgr = cv2.cvtColor(rgb_flipped, cv2.COLOR_RGB2BGR)
-        
-        cv2.imshow("Onboard Camera", rgb_bgr)
-        cv2.waitKey(1)
-    except:
-        print(f"Warning: Camera '{camera_name}' not found")
     
     # Swap buffers
     glfw.swap_buffers(window)
@@ -382,3 +405,38 @@ cv2.destroyAllWindows()
 total_time = time.time() - t_start
 print(f"--- Total Time: {total_time:.2f} seconds ---")
 print(f"--- Total realtime factor: {simend/total_time:.2f}x ---")
+
+# Plotting
+if len(time_log) > 0:
+    aero_forces_log = np.array(aero_forces_log)
+    time_log = np.array(time_log)
+
+    plt.figure(figsize=(12, 8))
+    
+    # Plot X, Y, Z components of Aerodynamic Force
+    plt.subplot(2, 1, 1)
+    plt.plot(time_log, aero_forces_log[:, 0], label='Force X (Drag/Thrust)')
+    plt.plot(time_log, aero_forces_log[:, 1], label='Force Y (Side)')
+    plt.plot(time_log, aero_forces_log[:, 2], label='Force Z (Lift)')
+    plt.title('Aerodynamic Forces on Body')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Force (N)')
+    plt.legend()
+    plt.grid(True)
+
+    # Calculate total force magnitude
+    total_aero_force = np.linalg.norm(aero_forces_log, axis=1)
+
+    # Plot Total Aerodynamic Force Magnitude
+    plt.subplot(2, 1, 2)
+    plt.plot(time_log, total_aero_force, label='Total Aero Force Magnitude', color='black')
+    plt.title('Total Aerodynamic Force Magnitude')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Force (N)')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No data logged for plotting.")

@@ -19,7 +19,7 @@
   <!-- <statistic meansize="0.0652069" extent="0.541984" center="0.0122683 -0.0367867 0.0356997"/> -->
 <!--  <option impratio="1" timestep="2e-5" gravity="0 0 -9.81" integrator="implicitfast"  density="1.225" viscosity="1.789e-5">-->
   <!-- <include file="cage.xml"/> -->
-  <option impratio="1" gravity="0 0 -9.81"  integrator="implicit" density="1.225" viscosity="1.789e-5">
+  <option impratio="1" gravity="0 0 -9.81"  integrator="implicit" density="0" viscosity="1.789e-5">
 <!--  <option impratio="1"  gravity="0 0 -9.81"  integrator="implicit" > Uncomment this to disable aerodynamics-->
 <!--    <flag contact="disable"/>-->
   </option>
@@ -67,34 +67,41 @@
     <!-- <include file="cage.xml"/> -->
 
   <worldbody>
+
     <!-- <body name="Aerobat" pos='0 0 0.5' quat="1 0 0 0"> -->
-    <body name="Core" pos= "0 0 0.5" quat="1 0 0 0">  <!-- Changed from 0.5 to 1.5 (1.5m high) -->
+    <body name="Core" pos= "0 0 1.0" quat="1 0 0 0">  <!-- Spawning at 1m height to be inside cage -->
         <camera name="onboard_camera" pos="0 0 0.1" quat="0.707 0.707 -0.707 -0.707"/>
         <freejoint/>
                 
         <geom class="collision" mesh="Core"/>
         <geom class="visual" mesh="Core"/>
-        <inertial pos="0 0 0" quat="1 0 0 0" mass="0.007" diaginertia="1.905e-03 6.872e-04 2.261e-03"/> <!-- Core -0.015 -->
+        <inertial pos="0 0 0" quat="1 0 0 0" mass="0.040" diaginertia="1.905e-03 6.872e-04 2.261e-03"/> <!-- Core -0.015 -->
 
         <!-- Visual axes for Core body (to see if it rotates differently from Guard) -->
         <site name="core_x_axis" type="box" pos=".08 .0 .0" size=".08 .003 .003" quat="1 0 0 0" rgba="1 0 0 0.7"/>
         <site name="core_y_axis" type="box" pos=".0 .08 .0" size=".08 .003 .003" quat=".707 0 0 .707" rgba="0 1 0 0.7"/>
         <site name="core_z_axis" type="box" pos=".0 .0 .08" size=".08 .003 .003" quat="-.707 0 .707 0" rgba="0 0 1 0.7"/>
 
+        <!-- IMU site for Core body -->
+        <site name="core_imu" pos="-0.015 0 0" quat="1 0 0 0"/>
+
         <!-- Guard as child body with ball joint connection -->
         <body name="Guard" pos="0 0 0" quat="1 0 0 0">
             <!-- 6-DOF compliant connection: 3 translations + 3 rotations (rubber band behavior) -->
             <!-- Translation spring-dampers (very soft for visible rubber band stretch) -->
-            <joint name="guard_slide_x" type="slide" axis="1 0 0" stiffness="9" damping="1" limited="true" range="-0.1 0.1"/>
-            <joint name="guard_slide_y" type="slide" axis="0 1 0" stiffness="9" damping="1" limited="true" range="-0.1 0.1"/>
-            <joint name="guard_slide_z" type="slide" axis="0 0 1" stiffness="9" damping="1" limited="true" range="-0.1 0.1"/>
+            <joint name="guard_slide_x" type="slide" axis="1 0 0" stiffness="9" damping="1" limited="true" range="0.0 0.1"/>
+            <joint name="guard_slide_y" type="slide" axis="0 1 0" stiffness="9" damping="1" limited="true" range="0.0 0.1"/>
+            <joint name="guard_slide_z" type="slide" axis="0 0 1" stiffness="9" damping="1" limited="true" range="0.0 0.1"/>
             <!-- Rotation spring-dampers (soft for visible rotation) -->
-            <joint name="guard_ball" type="ball" stiffness="1" damping="0.1" limited="true" range="0 0.3"/>
+            <joint name="guard_ball" type="ball" stiffness="5" damping="1" limited="true" range="0 0.3"/>
 
                 <!-- Visual axes for Guard body (to see relative rotation) -->
                 <site name="guard_x_axis" type="box" pos=".06 .0 .0" size=".06 .004 .004" quat="1 0 0 0" rgba="1 0.5 0 0.9"/>
                 <site name="guard_y_axis" type="box" pos=".0 .06 .0" size=".06 .004 .004" quat=".707 0 0 .707" rgba="0.5 1 0 0.9"/>
                 <site name="guard_z_axis" type="box" pos=".0 .0 .06" size=".06 .004 .004" quat="-.707 0 .707 0" rgba="0 0.5 1 0.9"/>
+
+                <!-- IMU site for Guard body -->
+                <site name="guard_imu" pos="0 0 0" quat="1 0 0 0"/>
 
                 <site name="motor1" type="cylinder" pos="0.148 .0 .0" size=".01 0.0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> <!--Front-->
                 <site name="motor2" type="cylinder" pos="-0.175 .0 .0" size=".01 0.0025" quat="1 0 0 0" rgba=".3 .8 .3 1"/> <!--Back-->
@@ -106,7 +113,7 @@
 
                 <geom class="collision" mesh="Guard"/>
                 <geom class="visual" mesh="Guard"/>
-                <inertial pos="0 0 0" quat="1 0 0 0" mass="0.0053" diaginertia="1.905e-03 6.872e-04 2.261e-03"/> <!--With guard (prop)-->
+                <inertial pos="0 0 0" quat="1 0 0 0" mass="0.083" diaginertia="1.905e-03 6.872e-04 2.261e-03"/> <!--With guard (prop)-->
             </body>
 
             <body name="L3" pos="0.0052 0.020673 0.0075244" quat="0.372893 0.60079 0.372898 0.60079">
@@ -152,11 +159,32 @@
   </worldbody>
 
   <sensor>
+    <!-- Keep body_frame for backward compatibility (references Core IMU) -->
     <framepos name="Body_pos" objtype="site" objname="body_frame"/>       <!-- datasensor[0:3] -->
     <framequat name="Body_quat" objtype="site" objname="body_frame"/>     <!-- datasensor[3:7] -->
     <framelinvel name="Body_linvel" objtype="site" objname="body_frame"/> <!-- datasensor[7:10] -->
     <gyro name="Body_angvel_local" site="body_frame" noise="0.0000001"/>                    <!-- datasensor[10:13] -->
     <accelerometer name="Body_linacc_local" site="body_frame" noise="0.000002"/>           <!-- datasensor[13:16] -->
+    
+    <!-- Core IMU (attached to Core body) -->
+    <gyro name="Core_gyro" site="core_imu" noise="0.0000001"/>                    <!-- datasensor[16:19] -->
+    <accelerometer name="Core_accel" site="core_imu" noise="0.000002"/>           <!-- datasensor[19:22] -->
+    
+    <!-- Guard IMU (attached to Guard body) -->
+    <gyro name="Guard_gyro" site="guard_imu" noise="0.0000001"/>                  <!-- datasensor[22:25] -->
+    <accelerometer name="Guard_accel" site="guard_imu" noise="0.000002"/>         <!-- datasensor[25:28] -->
+    
+    <!-- Core Ground Truth (attached to Core body) -->
+    <framepos name="Core_GT_pos" objtype="site" objname="core_imu"/>              <!-- datasensor[28:31] -->
+    <framequat name="Core_GT_quat" objtype="site" objname="core_imu"/>            <!-- datasensor[31:35] -->
+    <framelinvel name="Core_GT_linvel" objtype="site" objname="core_imu"/>        <!-- datasensor[35:38] -->
+    <frameangvel name="Core_GT_angvel" objtype="site" objname="core_imu"/>        <!-- datasensor[38:41] -->
+    
+    <!-- Guard Ground Truth (attached to Guard body) -->
+    <framepos name="Guard_GT_pos" objtype="site" objname="guard_imu"/>            <!-- datasensor[41:44] -->
+    <framequat name="Guard_GT_quat" objtype="site" objname="guard_imu"/>          <!-- datasensor[44:48] -->
+    <framelinvel name="Guard_GT_linvel" objtype="site" objname="guard_imu"/>      <!-- datasensor[48:51] -->
+    <frameangvel name="Guard_GT_angvel" objtype="site" objname="guard_imu"/>      <!-- datasensor[51:54] -->
     
 <!--    <frameangvel name="Body_angvel" objtype="site" objname="body_frame"/>-->
 <!--    <velocimeter name="Body_linvel_local" site="body_frame"/>-->
