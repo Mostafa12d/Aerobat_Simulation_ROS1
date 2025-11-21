@@ -1,4 +1,1 @@
-# generated from genmsg/cmake/pkg-msg-paths.cmake.develspace.in
-
-set(ros_flappy_sim_MSG_INCLUDE_DIRS "")
-set(ros_flappy_sim_MSG_DEPENDENCIES std_msgs)
+/home/sslab/Aerobat_MuJoCo/devel/.private/ros_flappy_sim/share/ros_flappy_sim/cmake/ros_flappy_sim-msg-paths.cmake

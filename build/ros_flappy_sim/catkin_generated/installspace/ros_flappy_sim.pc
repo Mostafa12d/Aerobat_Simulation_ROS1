@@ -1,4 +1,4 @@
-prefix=/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/install
+prefix=/home/sslab/Aerobat_MuJoCo/install
 
 Name: ros_flappy_sim
 Description: Description of ros_flappy_sim

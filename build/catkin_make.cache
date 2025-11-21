@@ -1,2 +1,0 @@
-ros_flappy_sim
--DCATKIN_DEVEL_PREFIX=/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/devel -DCMAKE_INSTALL_PREFIX=/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/install -G Unix Makefiles

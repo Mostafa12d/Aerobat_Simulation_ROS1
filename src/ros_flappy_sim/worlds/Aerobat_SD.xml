@@ -11,8 +11,8 @@
     - Camera is included
     -->
   <compiler angle="radian" 
-            meshdir="/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/src/ros_flappy_sim/assets/meshes_v8" 
-            texturedir="/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/src/ros_flappy_sim/assets/environments"
+            meshdir="../assets/meshes_v8" 
+            texturedir="../assets/environments"
             balanceinertia="true" />
   <!-- <compiler angle="radian" meshdir="../assets/meshes_v8" balanceinertia="true" /> -->
 

@@ -1,2 +1,1 @@
-set(ros_flappy_sim_MESSAGE_FILES "")
-set(ros_flappy_sim_SERVICE_FILES "")
+/home/sslab/Aerobat_MuJoCo/devel/.private/ros_flappy_sim/share/ros_flappy_sim/cmake/ros_flappy_sim-msg-extras.cmake

@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/devel/share/roseus/ros/ros_flappy_sim/manifest.l"
+  "/home/sslab/Aerobat_MuJoCo/devel/.private/ros_flappy_sim/share/roseus/ros/ros_flappy_sim/manifest.l"
   "CMakeFiles/ros_flappy_sim_generate_messages_eus"
 )
 

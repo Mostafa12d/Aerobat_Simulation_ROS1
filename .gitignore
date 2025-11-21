@@ -1,0 +1,101 @@
+# ROS and Catkin build artifacts
+build/
+devel/
+logs/
+install/
+.catkin_workspace
+.catkin_tools/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+*.egg
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Python environments
+venv/
+env/
+ENV/
+*.virtualenv
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled files
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+*.out
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+CTestConfiguration.ini
+Makefile
+*.cmake
+
+# Generated documentation
+doc/
+docs/_build/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Log files
+*.log
+MUJOCO_LOG.TXT
+
+# Video and media files (optional - uncomment if you don't want to track them)
+# *.mp4
+# *.avi
+# *.mov
+
+# SLAM data (optional - uncomment if you don't want to track generated data)
+# src/ros_flappy_sim/src/slam_data/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# OS specific
+Thumbs.db
+.directory
+
+# ROS message/service/action generated files
+*_generated.h
+*_generated.cpp
+
+# Eclipse
+.project
+.cproject
+.pydevproject
+.settings/
+
+# Emacs
+\#*\#
+.\#*
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]

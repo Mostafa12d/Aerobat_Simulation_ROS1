@@ -1,10 +1,10 @@
 <mujoco model="cage_environment">
     <asset>
         <!-- Cage mesh - 2x bigger -->
-        <mesh name="cage_mesh" file="../environments/Cage_360.obj" scale="1 1 1"/>
+        <mesh name="cage_mesh" file="../assets/environments/Cage_360.obj" scale="1 1 1"/>
         
         <!-- Load texture manually if MTL isn't working -->
-        <texture name="cage_texture" type="2d" file="../environments/Cage_360.png"/>
+        <texture name="cage_texture" type="2d" file="../assets/environments/Cage_360.png"/>
         <material name="cage_material" texture="cage_texture" rgba="1 1 1 1" shininess="0.3" specular="0.5"/>
     </asset>
     

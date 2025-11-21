@@ -1,8 +1,1 @@
-prefix=/Users/mostafalotfy/Documents/University/Master/SSLab/sim_ws/devel
-
-Name: ros_flappy_sim
-Description: Description of ros_flappy_sim
-Version: 0.0.1
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: rospy std_msgs sensor_msgs cv_bridge image_transport message_runtime
+/home/sslab/Aerobat_MuJoCo/devel/.private/ros_flappy_sim/lib/pkgconfig/ros_flappy_sim.pc
