@@ -272,18 +272,14 @@ cam.elevation = -20
 cam.distance = 1
 cam.lookat = np.array([0.0, 0.0, 0.5])
 
-# Get body/joint IDs
+# Get body/joint IDs framp
 body_list = ["Guard", "Core", "L3", "L7", "L3R", "L7R"]
 joint_list = ['J5', 'J6', 'J5R', 'J6R']
 bodyID_dic, jntID_dic, posID_dic, jvelID_dic = get_bodyIDs(body_list, model)
 jID_dic = get_jntIDs(joint_list, model)
 
 # Load joint angle data
-flap_freq_target = 3  # Target flapping frequency (Hz)
-flap_freq_initial = 0.5  # Start slow (0.5 Hz)
-flap_freq_ramp_time = 5.0  # Ramp up over 5 seconds
-flap_freq = flap_freq_initial  # Current frequency (will be updated in loop)
-
+flap_freq = 3
 Angle_data = pd.read_csv(csv_path, header=None)
 J5_m = Angle_data.loc[:, 0]
 J6_m = Angle_data.loc[:, 1]
@@ -415,13 +411,6 @@ while not glfw.window_should_close(window) and not rospy.is_shutdown():
         flapping_gain = min(target_gain, flapping_gain + dt * 5.0) # Ramp up over 0.2s
     elif flapping_gain > target_gain:
         flapping_gain = max(target_gain, flapping_gain - dt * 5.0) # Ramp down over 0.2s
-
-    # Ramp flapping frequency smoothly when flapping is enabled
-    if flapping_enabled and data.time < flap_freq_ramp_time:
-        # Linear ramp from initial to target frequency
-        flap_freq = flap_freq_initial + (flap_freq_target - flap_freq_initial) * (data.time / flap_freq_ramp_time)
-    else:
-        flap_freq = flap_freq_target
 
     if flapping_gain > 0:
         J5v_d = np.interp(data.time, t_m, J5v_m, period=1.0 / flap_freq) * flapping_gain

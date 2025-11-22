@@ -2,5 +2,7 @@
 /build
 /devel
 .DS_Store
+src/.DS_Store
+src/ros_flappy_sim/.DS_Store
 *.pyc
 __pycache__/
